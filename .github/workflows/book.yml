@@ -1,0 +1,71 @@
+name: Update myconfig.json
+
+on:
+  schedule:
+    - cron: '0 0 * * 6'  # 每周六0点运行
+  workflow_dispatch:  # 允许手动触发
+
+jobs:
+  update-config:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v2
+        with:
+          repository: hehonghui/awesome-english-ebooks
+          path: awesome-english-ebooks
+
+      - name: Set up Python
+        uses: actions/setup-python@v2
+        with:
+          python-version: '3.x'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install requests
+
+      - name: Generate myconfig.json
+        run: |
+          import os
+          import json
+          import requests
+          
+          def get_file_size(url):
+              response = requests.head(url)
+              return int(response.headers.get('content-length', 0))
+          
+          base_dir = 'awesome-english-ebooks/01_economist'
+          base_url = 'https://raw.githubusercontent.com/hehonghui/awesome-english-ebooks/master/01_economist'
+          
+          books = []
+          
+          for root, dirs, files in os.walk(base_dir):
+              for file in files:
+                  if file.endswith('.epub'):
+                      relative_path = os.path.relpath(os.path.join(root, file), base_dir)
+                      download_url = f"{base_url}/{relative_path}"
+                      file_size = get_file_size(download_url)
+                      
+                      book = {
+                          "author": "The Economist",  # 假设所有书籍的作者都是 The Economist
+                          "title": os.path.splitext(file)[0],
+                          "format": "epub",
+                          "cover": "",  # 目前没有封面信息
+                          "download_url": download_url,
+                          "source": "awesome-english-ebooks",
+                          "file_size": file_size
+                      }
+                      books.append(book)
+          
+          with open('myconfig.json', 'w', encoding='utf-8') as f:
+              json.dump(books, f, ensure_ascii=False, indent=2)
+        shell: python
+
+      - name: Commit and push if changed
+        run: |
+          git config --global user.email "belm@vip.qq.com"
+          git config --global user.name "GitHub Action"
+          git add myconfig.json
+          git commit -m "Update myconfig.json" || exit 0
+          git push
