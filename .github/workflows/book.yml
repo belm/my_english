@@ -11,6 +11,9 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v2
+
+      - name: Checkout awesome-english-ebooks
+        uses: actions/checkout@v2
         with:
           repository: hehonghui/awesome-english-ebooks
           path: awesome-english-ebooks
@@ -30,6 +33,7 @@ jobs:
           import os
           import json
           import requests
+          from datetime import datetime
           
           def get_file_size(url):
               response = requests.head(url)
@@ -38,34 +42,49 @@ jobs:
           base_dir = 'awesome-english-ebooks/01_economist'
           base_url = 'https://raw.githubusercontent.com/hehonghui/awesome-english-ebooks/master/01_economist'
           
-          books = []
+          # 读取现有的 myconfig.json 文件
+          existing_books = []
+          if os.path.exists('myconfig.json'):
+              with open('myconfig.json', 'r', encoding='utf-8') as f:
+                  existing_books = json.load(f)
+          
+          # 创建一个字典，用于快速查找现有书籍
+          existing_books_dict = {book['download_url']: book for book in existing_books}
+          
+          updated_books = []
           
           for root, dirs, files in os.walk(base_dir):
               for file in files:
                   if file.endswith('.epub'):
                       relative_path = os.path.relpath(os.path.join(root, file), base_dir)
                       download_url = f"{base_url}/{relative_path}"
-                      file_size = get_file_size(download_url)
                       
-                      book = {
-                          "author": "The Economist",  # 假设所有书籍的作者都是 The Economist
-                          "title": os.path.splitext(file)[0],
-                          "format": "epub",
-                          "cover": "",  # 目前没有封面信息
-                          "download_url": download_url,
-                          "source": "awesome-english-ebooks",
-                          "file_size": file_size
-                      }
-                      books.append(book)
+                      # 检查文件是否已经存在于 myconfig.json 中
+                      if download_url in existing_books_dict:
+                          # 如果存在，直接使用现有的信息
+                          updated_books.append(existing_books_dict[download_url])
+                      else:
+                          # 如果是新文件，获取文件大小并创建新的条目
+                          file_size = get_file_size(download_url)
+                          book = {
+                              "author": "The Economist",
+                              "title": os.path.splitext(file)[0],
+                              "format": "epub",
+                              "cover": "",
+                              "download_url": download_url,
+                              "source": "awesome-english-ebooks",
+                              "file_size": file_size,
+                              "date_added": datetime.now().isoformat()
+                          }
+                          updated_books.append(book)
           
+          # 将更新后的书籍列表写入 myconfig.json
           with open('myconfig.json', 'w', encoding='utf-8') as f:
-              json.dump(books, f, ensure_ascii=False, indent=2)
+              json.dump(updated_books, f, ensure_ascii=False, indent=2)
         shell: python
 
-      - name: Commit and push if changed
-        run: |
-          git config --global user.email "belm@vip.qq.com"
-          git config --global user.name "GitHub Action"
-          git add myconfig.json
-          git commit -m "Update myconfig.json" || exit 0
-          git push
+      - name: Commit changes
+        uses: stefanzweifel/git-auto-commit-action@v4
+        with:
+          commit_message: Update myconfig.json
+          file_pattern: myconfig.json
