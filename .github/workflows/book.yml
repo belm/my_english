@@ -5,6 +5,10 @@ on:
     - cron: '0 0 * * 6'  # 每周六0点运行
   workflow_dispatch:  # 允许手动触发
 
+# 添加权限设置
+permissions:
+  contents: write
+
 jobs:
   update-config:
     runs-on: ubuntu-latest
@@ -88,3 +92,5 @@ jobs:
         with:
           commit_message: Update myconfig.json
           file_pattern: myconfig.json
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
